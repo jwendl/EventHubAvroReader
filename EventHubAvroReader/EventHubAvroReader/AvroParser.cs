@@ -1,23 +1,25 @@
-﻿using System;
+﻿using Microsoft.WindowsAzure.Storage;
+using System;
 using System.Collections.Generic;
-using System.Text;
 using System.IO;
-using Microsoft.WindowsAzure.Storage;
-using Microsoft.WindowsAzure.Storage.Blob;
+using System.Threading.Tasks;
 
 namespace EventHubAvroReader
 {
     public static class AvroParser
     {
-        public static List<EventHubAvroData> ParseDataFromCloudStorage(string sas)
+        public static async Task<List<EventHubAvroData>> ParseDataFromCloudStorageAsync(string connectionString, string containerName, string fileName)
         {
-            CloudBlockBlob blob = new CloudBlockBlob(new Uri(sas));
-            MemoryStream ms = new MemoryStream();
-            using (ms)
+            var storageAccount = CloudStorageAccount.Parse(connectionString);
+            var blobClient = storageAccount.CreateCloudBlobClient();
+            var containerReference = blobClient.GetContainerReference(containerName);
+            var blockBlobReference = containerReference.GetBlockBlobReference(fileName);
+
+            using (var memoryStream = new MemoryStream())
             {
-                blob.DownloadToStreamAsync(ms).Wait();
-                ms.Position = 0;
-                return ParseAvroFile(ms);
+                await blockBlobReference.DownloadToStreamAsync(memoryStream);
+                memoryStream.Position = 0;
+                return ParseAvroFile(memoryStream);
             }
         }
 
@@ -30,26 +32,26 @@ namespace EventHubAvroReader
                 Console.ResetColor();
             }
 
-            using (Stream f = File.Open(fileName, FileMode.Open))
+            using (var file = File.Open(fileName, FileMode.Open))
             {
-                return ParseAvroFile(f);
+                return ParseAvroFile(file);
             }
         }
         public static List<EventHubAvroData> ParseAvroFile(Stream inStream)
         {
-           
-            List<EventHubAvroData> items = new List<EventHubAvroData>();
+
+            var eventHubAvroItems = new List<EventHubAvroData>();
 
             using (var reader = Avro.File.DataFileReader<object>.OpenReader(inStream))
             {
                 foreach (Avro.Generic.GenericRecord m in reader.NextEntries)
                 {
-                    EventHubAvroData e = new EventHubAvroData(m);
-                    items.Add(e);
+                    var eventHubAvroData = new EventHubAvroData(m);
+                    eventHubAvroItems.Add(eventHubAvroData);
                 }
             }
 
-            return items;
+            return eventHubAvroItems;
         }
     }
 }

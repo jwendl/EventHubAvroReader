@@ -1,38 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using EventHubAvroReader;
+using System;
+using System.Threading.Tasks;
 
 namespace ConsoleSample
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            if (args.Length > 0)
+            // TODO: use something different for arg management.
+            var connectionString = args[0];
+            var containerName = args[1];
+            var fileName = args[2];
+
+            if (String.IsNullOrWhiteSpace(fileName))
             {
-                string fileName = args[0];
-                List<EventHubAvroReader.EventHubAvroData> items = new List<EventHubAvroReader.EventHubAvroData>();
-
-                if (fileName.StartsWith("http"))
-                {
-                    items = EventHubAvroReader.AvroParser.ParseDataFromCloudStorage(fileName);
-                }
-                else
-                {
-                    items = EventHubAvroReader.AvroParser.ParseAvroFile(fileName);
-                }
-
+                Console.WriteLine("Usage: ConsoleSample.exe {connectionString} {containerName} {fileName}");
+            }
+            else
+            {
+                var items = await AvroParser.ParseDataFromCloudStorageAsync(connectionString, containerName, fileName);
                 Console.WriteLine("Parsed {0} items", items.Count);
-                foreach(var item in items)
+                foreach (var item in items)
                 {
                     Console.WriteLine("Enqueued Time: " + item.EnqueuedTimeUtc.ToLongDateString());
                 }
             }
-            else
-            {
-                Console.WriteLine("Missing input file name!");
-            }
-
-            //Console.ReadKey();
         }
     }
 }
